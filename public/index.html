@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de Llamado de Pacientes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f5ff;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .selector-pantalla {
+            background-color: #eaf5ff;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #d0e5ff;
+        }
+        
+        .current-call {
+            background-color: #3498db;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            font-size: 28px;
+            margin: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            animation: pulse 2s infinite;
+        }
+        
+        .waiting-list {
+            flex-grow: 1;
+            padding: 20px;
+            overflow: auto;
+        }
+        
+        .waiting-item {
+            background-color: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .footer {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Estilos para tipos de pacientes */
+        .tipo-t {
+            border-left: 5px solid #28a745;
+        }
+        .tipo-m {
+            border-left: 5px solid #17a2b8;
+        }
+        .tipo-p {
+            border-left: 5px solid #ffc107;
+        }
+        
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            min-width: 200px;
+        }
+        
+        label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sistema de Llamado de Pacientes</h1>
+        </div>
+        
+        <div class="selector-pantalla">
+            <label for="seleccionPantalla">Mostrar pacientes para:</label>
+            <select id="seleccionPantalla">
+                <option value="general">Todos los consultorios</option>
+                <!-- Se llenará dinámicamente con los consultorios disponibles -->
+            </select>
+        </div>
+        
+        <div class="current-call" id="currentCall">
+            No hay paciente en llamado
+        </div>
+        
+        <div class="waiting-list" id="waitingList">
+            <!-- Los pacientes en espera se mostrarán aquí -->
+        </div>
+        
+        <div class="footer">
+            <p>Clínica Médica</p>
+        </div>
+    </div>
+
+    <!-- Cargar Socket.IO cliente -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Conectar con el servidor
+        const socket = io();
+        
+        // Objeto para almacenar información de consultorios
+        let consultorios = {};
+        let pantallaActual = 'general'; // Por defecto, mostrar todos los consultorios
+        
+        // Referencias a elementos del DOM
+        const seleccionPantalla = document.getElementById('seleccionPantalla');
+        
+        // Inicialización
+        socket.on('connect', () => {
+            console.log('Conectado al servidor');
+            socket.emit('seleccionar-pantalla', pantallaActual);
+            socket.join('pantalla-general');
+        });
+        
+        // Recibir información de consultorios
+        socket.on('consultorios', (data) => {
+            consultorios = data;
+            console.log('Consultorios recibidos:', consultorios);
+            
+            // Llenar el selector de pantallas
+            // Mantener la opción "general" como la primera
+            const generalOption = seleccionPantalla.options[0];
+            seleccionPantalla.innerHTML = '';
+            seleccionPantalla.appendChild(generalOption);
+            
+            // Añadir cada consultorio como una opción
+            Object.keys(consultorios).forEach(id => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = consultorios[id];
+                seleccionPantalla.appendChild(option);
+            });
+            
+            // Restaurar la selección actual
+            seleccionPantalla.value = pantallaActual;
+        });
+        
+        // Evento de cambio de pantalla
+        seleccionPantalla.addEventListener('change', () => {
+            pantallaActual = seleccionPantalla.value;
+            console.log('Pantalla seleccionada:', pantallaActual);
+            
+            // Notificar al servidor la pantalla seleccionada
+            socket.emit('seleccionar-pantalla', pantallaActual);
+            
+            // Actualizar título según la selección
+            actualizarTitulo();
+        });
+        
+        // Función para actualizar el título según la pantalla seleccionada
+        function actualizarTitulo() {
+            const headerElement = document.querySelector('.header h1');
+            if (pantallaActual === 'general') {
+                headerElement.textContent = 'Sistema de Llamado de Pacientes';
+            } else if (consultorios[pantallaActual]) {
+                headerElement.textContent = `Llamado de Pacientes - ${consultorios[pantallaActual]}`;
+            }
+        }
+        
+        // Recibir lista de pacientes en espera
+        socket.on('lista-pacientes', (pacientes) => {
+            actualizarListaEspera(pacientes);
+        });
+        
+        // Recibir llamada de paciente
+        socket.on('llamar-paciente', (paciente) => {
+            llamarPaciente(paciente.nombre, paciente.ticket, paciente.consultorio);
+        });
+        
+        // Función para llamar a un paciente
+        function llamarPaciente(nombre, ticket, consultorioId) {
+            // Actualizar el panel de llamado actual
+            const currentCallElement = document.getElementById('currentCall');
+            currentCallElement.innerHTML = `
+                <strong>PACIENTE:</strong> ${nombre}<br>
+                <strong>TICKET:</strong> ${ticket}<br>
+                <strong>DIRIGIRSE A:</strong> ${consultorios[consultorioId]}
+            `;
+            
+            // Solo reproducir sonido y hablar si este consultorio coincide con la pantalla actual
+            // o si la pantalla actual es "general"
+            if (pantallaActual === 'general' || pantallaActual === consultorioId.toString()) {
+                // Reproducir sonido de llamada
+                const audio = new Audio('/notification.mp3'); // Archivo de audio almacenado en carpeta public
+                audio.play().catch(e => console.log('Error al reproducir audio:', e));
+                
+                // Hablar el llamado (accesibilidad)
+                if ('speechSynthesis' in window) {
+                    const mensaje = new SpeechSynthesisUtterance(`Paciente ${nombre}, ticket ${ticket}, por favor dirigirse a ${consultorios[consultorioId]}`);
+                    mensaje.lang = 'es-ES';
+                    speechSynthesis.speak(mensaje);
+                }
+            }
+        }
+
+        // Función para actualizar la lista de espera
+        function actualizarListaEspera(pacientes) {
+            const waitingListElement = document.getElementById('waitingList');
+            waitingListElement.innerHTML = '';
+            
+            pacientes.forEach(paciente => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'waiting-item';
+                
+                // Añadir clase adicional según el tipo de paciente
+                if (paciente.tipoPaciente) {
+                    itemElement.classList.add(`tipo-${paciente.tipoPaciente.toLowerCase()}`);
+                }
+                
+                itemElement.innerHTML = `
+                    <span><strong>Ticket:</strong> ${paciente.ticket} - <strong>Paciente:</strong> ${paciente.nombre}</span>
+                    <span><strong>Destino:</strong> ${consultorios[paciente.consultorio]}</span>
+                `;
+                waitingListElement.appendChild(itemElement);
+            });
+        }
+        
+        // Manejar errores de conexión
+        socket.on('connect_error', (error) => {
+            console.error('Error de conexión:', error);
+            // Mostrar mensaje de error en pantalla
+            document.getElementById('currentCall').innerHTML = 'Error de conexión con el servidor';
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Desconectado del servidor');
+            document.getElementById('currentCall').innerHTML = 'Desconectado del servidor. Reconectando...';
+        });
+    </script>
+</body>
+</html>

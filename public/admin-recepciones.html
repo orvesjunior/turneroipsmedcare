@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Administración de Recepciones - Sistema de Llamado</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #2c3e50;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .form-container {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        
+        .checkbox-group {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .checkbox-item {
+            margin-bottom: 8px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+        }
+        
+        .checkbox-label input {
+            width: auto;
+            margin-right: 10px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .button-delete {
+            background-color: #e74c3c;
+        }
+        
+        .button-delete:hover {
+            background-color: #c0392b;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        th {
+            background-color: #2c3e50;
+            color: white;
+        }
+        
+        .action-cell {
+            width: 200px;
+            text-align: center;
+        }
+        
+        .nav-links {
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .nav-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Administración de Recepciones</h1>
+        
+        <div id="statusMessage" class="status-message"></div>
+        
+        <div class="form-container">
+            <h2>Agregar Nueva Recepción</h2>
+            <form id="recepcionForm">
+                <div class="form-group">
+                    <label for="nombreRecepcion">Nombre de la Recepción:</label>
+                    <input type="text" id="nombreRecepcion" placeholder="Ej: Recepción Principal" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Consultorios asignados a esta recepción:</label>
+                    <div class="checkbox-group" id="consultoriosCheckboxes">
+                        <!-- Se llenará dinámicamente con los consultorios disponibles -->
+                    </div>
+                </div>
+                
+                <button type="submit">Agregar Recepción</button>
+            </form>
+        </div>
+        
+        <h2>Recepciones Existentes</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Consultorios Asignados</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="recepcionesTable">
+                <!-- Tabla de recepciones -->
+            </tbody>
+        </table>
+        
+        <div class="nav-links">
+            <a href="recepcion.html">Ir a Panel de Recepción</a> | 
+            <a href="admin-consultorios.html">Administrar Consultorios</a> | 
+            <a href="index.html">Ver Pantalla de Llamados</a>
+        </div>
+    </div>
+    
+    <!-- Modal para editar recepción -->
+    <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; border-radius: 10px; min-width: 500px;">
+            <h2>Editar Recepción</h2>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label for="editNombre">Nombre de la Recepción:</label>
+                    <input type="text" id="editNombre" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Consultorios asignados a esta recepción:</label>
+                    <div class="checkbox-group" id="editConsultoriosCheckboxes">
+                        <!-- Se llenará dinámicamente con los consultorios disponibles -->
+                    </div>
+                </div>
+                
+                <div style="text-align: right; margin-top: 20px;">
+                    <button type="button" onclick="document.getElementById('editModal').style.display='none'">Cancelar</button>
+                    <button type="submit" style="background-color: #27ae60;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Cargar Socket.IO cliente -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Conectar con el servidor
+        const socket = io();
+        
+        // Referencias a elementos del DOM
+        const recepcionForm = document.getElementById('recepcionForm');
+        const nombreRecepcionInput = document.getElementById('nombreRecepcion');
+        const consultoriosCheckboxes = document.getElementById('consultoriosCheckboxes');
+        const recepcionesTable = document.getElementById('recepcionesTable');
+        const statusMessage = document.getElementById('statusMessage');
+        const editModal = document.getElementById('editModal');
+        const editForm = document.getElementById('editForm');
+        const editId = document.getElementById('editId');
+        const editNombre = document.getElementById('editNombre');
+        const editConsultoriosCheckboxes = document.getElementById('editConsultoriosCheckboxes');
+        
+        // Variables para almacenar datos
+        let consultorios = {};
+        let recepciones = {};
+        
+        // Inicialización
+        socket.on('connect', () => {
+            console.log('Conectado al servidor');
+        });
+        
+        // Recibir información de consultorios
+        socket.on('consultorios', (data) => {
+            consultorios = data;
+            console.log('Consultorios recibidos:', consultorios);
+            
+            // Llenar checkboxes de consultorios
+            actualizarCheckboxesConsultorios();
+        });
+        
+        // Recibir información de recepciones
+        socket.on('recepciones', (data) => {
+            recepciones = data;
+            console.log('Recepciones recibidas:', recepciones);
+            
+            // Actualizar tabla de recepciones
+            actualizarTablaRecepciones();
+        });
+        
+        // Función para actualizar checkboxes de consultorios
+        function actualizarCheckboxesConsultorios() {
+            consultoriosCheckboxes.innerHTML = '';
+            editConsultoriosCheckboxes.innerHTML = '';
+            
+            Object.keys(consultorios).forEach(id => {
+                // Checkboxes para el formulario de agregar
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox-item';
+                checkbox.innerHTML = `
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="consultorios" value="${id}">
+                        ${consultorios[id]}
+                    </label>
+                `;
+                consultoriosCheckboxes.appendChild(checkbox);
+                
+                // Checkboxes para el formulario de editar
+                const editCheckbox = document.createElement('div');
+                editCheckbox.className = 'checkbox-item';
+                editCheckbox.innerHTML = `
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="editConsultorios" value="${id}">
+                        ${consultorios[id]}
+                    </label>
+                `;
+                editConsultoriosCheckboxes.appendChild(editCheckbox);
+            });
+        }
+        
+        // Función para actualizar tabla de recepciones
+        function actualizarTablaRecepciones() {
+            recepcionesTable.innerHTML = '';
+            
+            Object.keys(recepciones).forEach(id => {
+                const recepcion = recepciones[id];
+                const row = document.createElement('tr');
+                
+                // Obtener nombres de consultorios asignados
+                const consultoriosAsignados = recepcion.consultorios
+                    .map(c => consultorios[c])
+                    .filter(Boolean) // Filtrar consultorios que no existen
+                    .join(', ');
+                
+                row.innerHTML = `
+                    <td>${id}</td>
+                    <td>${recepcion.nombre}</td>
+                    <td>${consultoriosAsignados}</td>
+                    <td class="action-cell">
+                        <button class="button-edit" data-id="${id}">Editar</button>
+                        <button class="button-delete" data-id="${id}">Eliminar</button>
+                    </td>
+                `;
+                
+                recepcionesTable.appendChild(row);
+            });
+            
+            // Agregar event listeners a los botones
+            document.querySelectorAll('.button-edit').forEach(button => {
+                button.addEventListener('click', () => {
+                    const id = button.getAttribute('data-id');
+                    abrirModalEditar(id);
+                });
+            });
+            
+            document.querySelectorAll('.button-delete').forEach(button => {
+                button.addEventListener('click', () => {
+                    const id = button.getAttribute('data-id');
+                    if (confirm(`¿Está seguro que desea eliminar la recepción ${id}?`)) {
+                        eliminarRecepcion(id);
+                    }
+                });
+            });
+        }
+        
+        // Función para abrir modal de edición
+        function abrirModalEditar(id) {
+            const recepcion = recepciones[id];
+            if (!recepcion)
+			return;
+            
+            // Llenar el formulario con los datos actuales
+            editId.value = id;
+            editNombre.value = recepcion.nombre;
+            
+            // Marcar los consultorios asignados
+            document.querySelectorAll('input[name="editConsultorios"]').forEach(checkbox => {
+                checkbox.checked = recepcion.consultorios.includes(parseInt(checkbox.value));
+            });
+            
+            // Mostrar modal
+            editModal.style.display = 'block';
+        }
+        
+        // Manejar envío del formulario para agregar recepción
+        recepcionForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const nombre = nombreRecepcionInput.value.trim();
+            const consultoriosSeleccionados = Array.from(
+                document.querySelectorAll('input[name="consultorios"]:checked')
+            ).map(checkbox => parseInt(checkbox.value));
+            
+            if (nombre && consultoriosSeleccionados.length > 0) {
+                socket.emit('agregar-recepcion', {
+                    nombre,
+                    consultorios: consultoriosSeleccionados
+                });
+                
+                // Limpiar formulario
+                nombreRecepcionInput.value = '';
+                document.querySelectorAll('input[name="consultorios"]').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                
+                mostrarMensaje('Recepción agregada correctamente', 'success');
+            } else {
+                mostrarMensaje('Debe proporcionar un nombre y seleccionar al menos un consultorio', 'error');
+            }
+        });
+        
+        // Manejar envío del formulario para editar recepción
+        editForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const id = editId.value;
+            const nombre = editNombre.value.trim();
+            const consultoriosSeleccionados = Array.from(
+                document.querySelectorAll('input[name="editConsultorios"]:checked')
+            ).map(checkbox => parseInt(checkbox.value));
+            
+            if (id && nombre && consultoriosSeleccionados.length > 0) {
+                socket.emit('actualizar-recepcion', {
+                    id,
+                    nombre,
+                    consultorios: consultoriosSeleccionados
+                });
+                
+                // Cerrar modal
+                editModal.style.display = 'none';
+                
+                mostrarMensaje('Recepción actualizada correctamente', 'success');
+            } else {
+                mostrarMensaje('Debe proporcionar un nombre y seleccionar al menos un consultorio', 'error');
+            }
+        });
+        
+        // Función para eliminar recepción
+        function eliminarRecepcion(id) {
+            socket.emit('eliminar-recepcion', id);
+        }
+        
+        // Recibir error al eliminar recepción
+        socket.on('error-eliminar-recepcion', (data) => {
+            mostrarMensaje(data.mensaje, 'error');
+        });
+        
+        // Función para mostrar mensajes de estado
+        function mostrarMensaje(mensaje, tipo) {
+            statusMessage.textContent = mensaje;
+            statusMessage.style.display = 'block';
+            
+            if (tipo === 'success') {
+                statusMessage.className = 'status-message status-success';
+            } else {
+                statusMessage.className = 'status-message status-error';
+            }
+            
+            // Ocultar mensaje después de 5 segundos
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Manejar errores de conexión
+        socket.on('connect_error', (error) => {
+            console.error('Error de conexión:', error);
+            mostrarMensaje('Error de conexión con el servidor', 'error');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Desconectado del servidor');
+            mostrarMensaje('Desconectado del servidor. Reconectando...', 'error');
+        });
+    </script>
+</body>
+</html>

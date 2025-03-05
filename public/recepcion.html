@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Recepción - Sistema de Llamado</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        .form-container {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            padding: 12px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .button-call {
+            background-color: #27ae60;
+        }
+        
+        .button-call:hover {
+            background-color: #219955;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        th {
+            background-color: #2c3e50;
+            color: white;
+        }
+        
+        .action-cell {
+            text-align: center;
+        }
+        
+        /* Estilos para tipos de pacientes */
+        .tipo-n {
+            background-color: #ffffff;
+        }
+        .tipo-t {
+            background-color: #d4edda;
+        }
+        .tipo-m {
+            background-color: #d1ecf1;
+        }
+        .tipo-p {
+            background-color: #fff3cd;
+        }
+        
+        .nav-links {
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .nav-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        
+        .selector-recepcion {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9f7fe;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Panel de Recepción</h1>
+        
+        <div class="selector-recepcion">
+            <div class="form-group">
+                <label for="seleccionRecepcion">Seleccione la Recepción:</label>
+                <select id="seleccionRecepcion">
+                    <!-- Se llenará dinámicamente con las recepciones disponibles -->
+                </select>
+            </div>
+            <p id="consultoriosInfo">Esta recepción administra: </p>
+        </div>
+        
+        <div class="form-container">
+            <h2>Agregar Nuevo Paciente</h2>
+            <form id="pacienteForm">
+                <div class="form-group">
+                    <label for="nombre">Nombre del Paciente:</label>
+                    <input type="text" id="nombre" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tipoPaciente">Tipo de Paciente:</label>
+                    <select id="tipoPaciente" required>
+                        <option value="N">Paciente Normal</option>
+                        <option value="T">Tercera Edad</option>
+                        <option value="M">Menor de Edad</option>
+                        <option value="P">Particular</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="consultorio">Consultorio:</label>
+                    <select id="consultorio" required>
+                        <!-- Se llenará dinámicamente con los consultorios disponibles -->
+                    </select>
+                </div>
+                
+                <button type="submit">Agregar Paciente</button>
+            </form>
+        </div>
+        
+        <h2>Pacientes en Espera</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticket</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Consultorio</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="pacientesTable">
+                <!-- Tabla de pacientes en espera -->
+            </tbody>
+        </table>
+        
+        <div class="nav-links">
+            <a href="admin-consultorios.html">Administrar Consultorios</a> | 
+            <a href="admin-recepciones.html">Administrar Recepciones</a> | 
+            <a href="index.html">Ver Pantalla de Llamados</a>
+        </div>
+    </div>
+    
+    <!-- Cargar Socket.IO cliente -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Conectar con el servidor
+        const socket = io();
+        
+        // Referencias a elementos del DOM
+        const pacienteForm = document.getElementById('pacienteForm');
+        const nombreInput = document.getElementById('nombre');
+        const consultorioSelect = document.getElementById('consultorio');
+        const pacientesTable = document.getElementById('pacientesTable');
+        const seleccionRecepcion = document.getElementById('seleccionRecepcion');
+        const consultoriosInfo = document.getElementById('consultoriosInfo');
+        
+        // Objeto para almacenar información de consultorios y recepciones
+        let consultorios = {};
+        let recepciones = {};
+        let recepcionActual = 1; // Por defecto, la primera recepción
+        
+        // Contadores para los diferentes tipos de tickets
+        let contadorTickets = {
+            'N': 1, // Normal
+            'T': 1, // Tercera Edad
+            'M': 1, // Menor de Edad
+            'P': 1  // Particular
+        };
+        
+        // Función para generar ticket basado en tipo de paciente
+        function generarTicket(tipoPaciente) {
+            let prefijo = '';
+            switch(tipoPaciente) {
+                case 'N': prefijo = 'N'; break; // Normal
+                case 'T': prefijo = 'T'; break; // Tercera Edad
+                case 'M': prefijo = 'M'; break; // Menor de Edad
+                case 'P': prefijo = 'P'; break; // Particular
+                default: prefijo = 'N'; break;
+            }
+            
+            // Número secuencial con tres dígitos
+            const numero = String(contadorTickets[tipoPaciente]).padStart(3, '0');
+            contadorTickets[tipoPaciente]++;
+            
+            // Retornar ticket con formato: X-000
+            return `${prefijo}-${numero}`;
+        }
+        
+        // Inicialización
+        socket.on('connect', () =>
+		{
+            console.log('Conectado al servidor');
+            socket.emit('solicitar-contadores');
+            socket.emit('seleccionar-recepcion', recepcionActual);
+        });
+        
+        // Recibir información de consultorios
+        socket.on('consultorios', (data) => {
+            consultorios = data;
+            console.log('Consultorios recibidos:', consultorios);
+            
+            actualizarInterfaz();
+        });
+        
+        // Recibir información de recepciones
+        socket.on('recepciones', (data) => {
+            recepciones = data;
+            console.log('Recepciones recibidas:', recepciones);
+            
+            // Llenar el selector de recepciones
+            seleccionRecepcion.innerHTML = '';
+            Object.keys(recepciones).forEach(id => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = recepciones[id].nombre;
+                seleccionRecepcion.appendChild(option);
+            });
+            
+            // Seleccionar la recepción actual
+            seleccionRecepcion.value = recepcionActual;
+            
+            actualizarInterfaz();
+        });
+        
+        // Cuando se cambia la recepción seleccionada
+        seleccionRecepcion.addEventListener('change', () => {
+            recepcionActual = seleccionRecepcion.value;
+            console.log('Recepción seleccionada:', recepcionActual);
+            
+            // Notificar al servidor y solicitar los pacientes de esta recepción
+            socket.emit('seleccionar-recepcion', recepcionActual);
+            
+            actualizarInterfaz();
+        });
+        
+        // Función para actualizar la interfaz según la recepción seleccionada
+        function actualizarInterfaz() {
+            // Solo actualizar si tenemos datos de consultorios y recepciones
+            if (Object.keys(consultorios).length === 0 || Object.keys(recepciones).length === 0) {
+                return;
+            }
+            
+            // Actualizar el texto de información de consultorios
+            const recepcion = recepciones[recepcionActual];
+            if (recepcion) {
+                const consultoriosDeRecepcion = recepcion.consultorios
+                    .map(c => consultorios[c])
+                    .filter(Boolean)
+                    .join(', ');
+                consultoriosInfo.textContent = `Esta recepción administra: ${consultoriosDeRecepcion}`;
+                
+                // Actualizar el selector de consultorios disponibles para esta recepción
+                consultorioSelect.innerHTML = '';
+                recepcion.consultorios.forEach(id => {
+                    if (consultorios[id]) {
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = consultorios[id];
+                        consultorioSelect.appendChild(option);
+                    }
+                });
+            }
+        }
+        
+        // Recibir lista de pacientes en espera
+        socket.on('lista-pacientes', (pacientes) => {
+            actualizarTablaPacientes(pacientes);
+        });
+        
+        // Recibir contadores actualizados
+        socket.on('contadores-tickets', (contadores) => {
+            contadorTickets = contadores;
+            console.log('Contadores de tickets recibidos:', contadorTickets);
+        });
+        
+        // Función para actualizar la tabla de pacientes
+        function actualizarTablaPacientes(pacientes) {
+            pacientesTable.innerHTML = '';
+            
+            pacientes.forEach(paciente => {
+                const row = document.createElement('tr');
+                
+                // Añadir clase CSS según el tipo de paciente
+                if (paciente.tipoPaciente) {
+                    row.classList.add(`tipo-${paciente.tipoPaciente.toLowerCase()}`);
+                }
+                
+                // Preparar el texto del tipo de paciente
+                let tipoPacienteTexto = '';
+                if (paciente.tipoPaciente) {
+                    switch(paciente.tipoPaciente) {
+                        case 'N': tipoPacienteTexto = 'Normal'; break;
+                        case 'T': tipoPacienteTexto = 'Tercera Edad'; break;
+                        case 'M': tipoPacienteTexto = 'Menor de Edad'; break;
+                        case 'P': tipoPacienteTexto = 'Particular'; break;
+                        default: tipoPacienteTexto = 'Normal';
+                    }
+                }
+                
+                row.innerHTML = `
+                    <td>${paciente.ticket}</td>
+                    <td>${paciente.nombre}</td>
+                    <td>${tipoPacienteTexto}</td>
+                    <td>${consultorios[paciente.consultorio]}</td>
+                    <td class="action-cell">
+                        <button class="button-call" data-id="${paciente.id}">Llamar</button>
+                    </td>
+                `;
+                
+                pacientesTable.appendChild(row);
+            });
+            
+            // Agregar event listeners a los botones de llamada
+            document.querySelectorAll('.button-call').forEach(button => {
+                button.addEventListener('click', () => {
+                    const pacienteId = parseInt(button.getAttribute('data-id'));
+                    llamarPaciente(pacienteId);
+                });
+            });
+        }
+        
+        // Función para llamar a un paciente
+        function llamarPaciente(pacienteId) {
+            socket.emit('llamar-paciente', pacienteId);
+        }
+        
+        // Manejar envío del formulario para agregar paciente
+        pacienteForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const nombre = nombreInput.value.trim();
+            const tipoPaciente = document.getElementById('tipoPaciente').value;
+            const consultorioId = parseInt(consultorioSelect.value);
+            
+            if (nombre && tipoPaciente && consultorioId) {
+                // Generar ticket automáticamente
+                const ticket = generarTicket(tipoPaciente);
+                
+                const nuevoPaciente = {
+                    nombre,
+                    ticket,
+                    consultorio: consultorioId,
+                    tipoPaciente, // Guardamos el tipo para referencia
+                    recepcion: parseInt(recepcionActual) // Añadir la recepción actual
+                };
+                
+                socket.emit('agregar-paciente', nuevoPaciente);
+                
+                // Limpiar formulario
+                nombreInput.value = '';
+                document.getElementById('tipoPaciente').value = 'N'; // Restablecer a Normal
+            }
+        });
+        
+        // Manejar errores de conexión
+        socket.on('connect_error', (error) => {
+            console.error('Error de conexión:', error);
+            alert('Error de conexión con el servidor');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Desconectado del servidor');
+            alert('Desconectado del servidor. Reconectando...');
+        });
+    </script>
+</body>
+</html>
